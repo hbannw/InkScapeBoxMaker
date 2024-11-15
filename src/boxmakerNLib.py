@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 """
 boxmaker.py
-A module for creating a box with laser cut 
+A module for creating a box with laser cut
 
 Copyright (C) 2018 Michael Breu; Michael.Breu@arctis.at
 
@@ -21,6 +21,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 Updated for InkScape 1.0 by Leon Palnau 4/15/2021
 Updated for InkScape 1.2 by Michael Breu 12/04/2022
+Added handle cut for open boxes and corrected bool params and debug options by Hubert Bannwarth 9/7/2024
+Added an option to cut a hole like desktop boxes by Hubert Bannwarth 15/11/2024
+Added an option to create separate parts for the front, bottom and back parts by Hubert Bannwarth 15/11/2024
+
 """
 
 __version__ = "1.0"
@@ -320,6 +324,7 @@ class BoxMaker(inkex.Effect):
         self.frameLength = 10.0
         self.hingeCircleFactor = 1.5
         self.debug = False
+        self.separateAll = False
 
         # Call the base class constructor.
         inkex.Effect.__init__(self)
@@ -355,8 +360,23 @@ class BoxMaker(inkex.Effect):
         self.arg_parser.add_argument('--hingeCircleFactor', action='store', type=float, dest='hingeCircleFactor',
                                      default=1.5, help='Size of hinge circle.')
 
-        self.arg_parser.add_argument('--debug', action='store', type=bool, dest='debug', default='False',
+        self.arg_parser.add_argument('--debug', action='store', type=str, dest='debug', default='False',
                                      help='debug Info')
+
+        self.arg_parser.add_argument('--hasHandle', action='store', type=str, dest='hasHandle', default='False',
+                                     help='Has Handle')
+        self.arg_parser.add_argument('--handleHeight', action='store', type=float, dest='handleHeight', default=0,
+                                     help='Handle cut height.')
+        self.arg_parser.add_argument('--handleDepth', action='store', type=float, dest='handleDepth', default=0,
+                                     help='Handle cut depth.')
+        self.arg_parser.add_argument('--separateAll', action='store', type=str, dest='separateAll', default='False',
+                                     help='Separate all parts.')
+        self.arg_parser.add_argument('--hasHole', action='store', type=str, dest='hasHole', default='False',
+                                     help='Has Hole')
+        self.arg_parser.add_argument('--holeDiameter', action='store', type=float, dest='holeDiameter', default=0,
+                                     help='Hole Diameter.')
+        self.arg_parser.add_argument('--holePosition', action='store', type=float, dest='holePosition', default=0,
+                                     help='Hole position.')
 
     def effect(self):
         if self.options.boxType == 'withHinge':
@@ -381,7 +401,11 @@ class BoxMaker(inkex.Effect):
         self.frameLength = self.svg.unittouu(str(self.options.frameLength) + unit)
         self.hingeCircleFactor = self.options.hingeCircleFactor
 
-        self.debug = self.options.debug
+        self.debug = inkex.utils.Boolean(self.options.debug)
+        self.separateAll = inkex.utils.Boolean(self.options.separateAll)
+        self.interval = 0
+        if self.separateAll:
+          self.interval = self.thickness
 
         self.backRestHeight = 150.0
         self.backRestWidth = 90.0
@@ -398,7 +422,33 @@ class BoxMaker(inkex.Effect):
         self.inclination = 75.0
         self.inclinationRad = self.inclination * math.pi / 180.0
 
-        # inkex.debug("Info. %.2f %.2f %s %.2f" % (self.boxWidth, self.frameLength, repr(self.debug), self.hingeCircleFactor))
+        # handle cut infos, limit the cut to be inside the sides
+        self.handleHeight = self.svg.unittouu(str(self.options.handleHeight) + unit)
+        self.maxHandleHeight = self.boxHeight - (3*self.frameLength) - (2*self.frameEdgesMin)
+        if self.handleHeight > self.maxHandleHeight:
+          self.handleHeight = self.maxHandleHeight
+
+        self.handleDepth = self.svg.unittouu(str(self.options.handleDepth) + unit)
+        self.maxHandleDepth = self.boxDepth - (self.thickness * 3)
+        if self.handleDepth > self.maxHandleDepth:
+          self.handleDepth = self.maxHandleDepth
+
+        self.hasHandle = inkex.utils.Boolean(self.options.hasHandle)
+        if not self.hasHandle:
+           self.handleHeight = 0
+           self.handleDepth = 0
+
+        # handle hole infos, limit the hole insade the front part
+        self.hasHole = inkex.utils.Boolean(self.options.hasHole)
+        self.holeDiameter = self.svg.unittouu(str(self.options.holeDiameter) + unit)
+        if self.holeDiameter > (self.boxWidth - self.thickness * 2):
+            self.holeDiameter = (self.boxWidth - self.thickness * 2)
+
+        self.holePosition = self.svg.unittouu(str(self.options.holePosition) + unit)
+        if self.holePosition > (self.boxHeight - self.thickness * 2 -self.holeDiameter):
+            self.holePosition = (self.boxHeight - self.thickness * 2 -self.holeDiameter)
+
+        # inkex.utils.debug("Info. %.2f %.2f Debug : %s HasHandle : %s %.2f" % (self.boxWidth, self.frameLength, repr(self.debug), self.options.hasHandle, self.hingeCircleFactor))
 
         self.parent = self.svg.get_current_layer()
 
@@ -494,7 +544,8 @@ class BoxMaker(inkex.Effect):
         shelf.lineBy(Point(halfWidth - self.thickness - 2 * smallradius, 0))
         shelf.append(circleArc(smallradius, Point(smallradius, smallradius), '0'))
         shelf.lineBy(Point(0, self.shelfLength - smallradius - self.usbDepth - plugoffset))
-        self.markPoints(shelf.finalPosition(), 'blue')
+        if self.debug:
+           self.markPoints(shelf.finalPosition(), 'blue')
 
         # shelf.append(circleArc(smallerradius, Point(-smallerradius, smallerradius), '0'))
         shelf = shelf.lineByWithCorner(smallerradius, Point(-(self.usbWidth / 2 - self.usbDepth / 2), 0))
@@ -507,7 +558,8 @@ class BoxMaker(inkex.Effect):
 
         shelf.lineBy(Point(-(self.usbWidth / 2.0 - self.usbDepth / 2.0), 0))
         shelf = shelf.lineByWithCorner(smallerradius, Point(0, -(self.shelfLength - self.usbDepth) + plugoffset))
-        self.markPoints(shelf.finalPosition(), 'blue')
+        if self.debug:
+          self.markPoints(shelf.finalPosition(), 'blue')
         shelf = shelf.lineByWithCorner(smallradius, Point(halfWidth - self.thickness - smallradius, 0))
         shelf.append(circleArc(self.thickness, Point(self.thickness, self.thickness), '0'))
         shelf.lineBy(Point(0, self.shelfLength - self.thickness))
@@ -582,22 +634,75 @@ class BoxMaker(inkex.Effect):
         bottomAndFrontBack.append(move(start))
 
         # front left first
-        bottomAndFrontBack.extend(self.boxFrames(self.boxHeight, Direction.up))
-        # self.markPoints(bottomAndFrontBack.finalPosition(), 'blue')
+        bottomAndFrontBack.extend(self.boxFrames(self.boxHeight-self.handleHeight, Direction.up))
+        self.markPoints(bottomAndFrontBack.finalPosition(), 'blue')
         bottomAndFrontBack.append(line(Point(0, -self.thickness)))
-        # self.markPoints(bottomAndFrontBack.finalPosition(), 'blue')
+        self.markPoints(bottomAndFrontBack.finalPosition(), 'green')
+
+        # horizontal line (separator 1)
+        lastpos = bottomAndFrontBack.finalPosition()
+        bottomAndFrontBack.MoveTo(lastpos.add(self.boxWidth,0))
+        bottomAndFrontBack.extend(self.boxFrames(self.boxWidth, Direction.right))
+        self.markPoints(bottomAndFrontBack.finalPosition(), 'purple')
+
+        # vertical line right
+        bottomAndFrontBack.MoveTo(start.add(self.boxWidth,self.boxHeight-self.handleHeight))
+        bottomAndFrontBack.extend(self.boxFrames(self.boxHeight-self.handleHeight, Direction.down))
+        # cutout for hinge
+        bottomAndFrontBack.append(line(Point(-self.thickness, 0)))
+        if self.boxType.has_hinges():
+            bottomAndFrontBack.append(line(Point(0, self.thickness)))
+        bottomAndFrontBack.append(line(Point(-self.boxWidth + 2 * self.thickness, 0)))
+        if self.boxType.has_hinges():
+            bottomAndFrontBack.append(line(Point(0, -self.thickness)))
+        bottomAndFrontBack.append(line(Point(-self.thickness, 0)))
+        # Add hole
+        if self.hasHole:
+          self.insertCircle(self.holeDiameter/2, start.add(self.boxWidth/2, self.boxHeight - (self.holePosition + self.holeDiameter/2)))
+
+        bottomAndFrontBack.MoveTo(start.add(0,self.boxHeight-self.handleHeight))
+        self.markPoints(bottomAndFrontBack.finalPosition(), 'green')
+        #create a new object for bottom if needed
+        if self.separateAll:
+          bottomAndFrontBack = bottomAndFrontBack.simplify()
+          self.markPoints(bottomAndFrontBack.finalPosition(), 'red')
+          self.insertPath(bottomAndFrontBack)
+          bottomAndFrontBack = Path()
+          bottomAndFrontBack.MoveTo(start.add(self.boxWidth,self.boxHeight-self.handleHeight-self.thickness + self.interval*2))
+          bottomAndFrontBack.extend(self.boxFrames(self.boxWidth, Direction.right))
+
+        # Continue with bottom
+        bottomAndFrontBack.MoveTo(start.add(0,self.boxHeight-self.handleHeight-self.thickness + self.interval*2))
 
         # bottom left next
         bottomAndFrontBack.extend(self.boxFrames(self.boxDepth, Direction.up))
-        # self.markPoints(bottomAndFrontBack.finalPosition(), 'blue')
+        # self.markPoints(bottomAndFrontBack.finalPosition(), 'orange')
+        bottomAndFrontBack.extend(self.boxFrames(self.boxWidth, Direction.left))
+        bottomAndFrontBack.extend(self.boxFrames(self.boxDepth, Direction.down))
+        # create a newobject for back if ennede
+        if self.separateAll:
+          bottomAndFrontBack = bottomAndFrontBack.simplify()
+          if self.debug:
+            self.markPoints(bottomAndFrontBack.finalPosition(), 'purple')
+          self.insertPath(bottomAndFrontBack)
 
+          bottomAndFrontBack = Path()
+          bottomAndFrontBack.MoveTo(start.add(0, self.boxHeight-self.handleHeight - self.thickness + self.interval * 3 + self.boxDepth))
+          bottomAndFrontBack.extend(self.boxFrames(self.boxWidth, Direction.left))
+
+        bottomAndFrontBack.MoveTo(start.add(0, self.boxHeight-self.handleHeight - self.thickness + self.interval * 3 + self.boxDepth))
+
+
+        ##bottomAndFrontBack.MoveTo(start.add(0, self.boxHeight-self.handleHeight - self.thickness + self.boxDepth))
+        self.markPoints(bottomAndFrontBack.finalPosition(), 'grey')
         bottomAndFrontBack.append(line(Point(0, -self.thickness)))
+
         # back left next
         bottomAndFrontBack.extend(self.boxFrames(self.boxHeight, Direction.up))
 
         if self.boxType.has_hinges():
             # back width next
-            self.markPoints(bottomAndFrontBack.finalPosition(), 'yellow')
+            self.markPoints(bottomAndFrontBack.finalPosition(), 'grey')
             # Zurueck wg. Deckel (+ Rotation)
             backForHinge = self.thickness / 2.0 + outerRadius
             bottomAndFrontBack.append(line(Point(0, -backForHinge)))
@@ -618,60 +723,48 @@ class BoxMaker(inkex.Effect):
         self.markPoints(bottomAndFrontBack.finalPosition(), 'yellow')
 
         # back right next
-        bottomAndFrontBack.extend(self.boxFrames(self.boxHeight, Direction.down))
+        bottomAndFrontBack.extend(self.boxFrames(self.boxHeight , Direction.down))
         bottomAndFrontBack.append(line(Point(0, self.thickness)))
 
-        # bottom right next
-        bottomAndFrontBack.extend(self.boxFrames(self.boxDepth, Direction.down))
 
-        # front right next
-        bottomAndFrontBack.append(line(Point(0, self.thickness)))
-        bottomAndFrontBack.extend(self.boxFrames(self.boxHeight, Direction.down))
-
-        # front top next
-        # Aussparung fuer Deckel
-        bottomAndFrontBack.append(line(Point(-self.thickness, 0)))
-        if self.boxType.has_hinges():
-            bottomAndFrontBack.append(line(Point(0, self.thickness)))
-        bottomAndFrontBack.append(line(Point(-self.boxWidth + 2 * self.thickness, 0)))
-        if self.boxType.has_hinges():
-            bottomAndFrontBack.append(line(Point(0, -self.thickness)))
-        bottomAndFrontBack.append(line(Point(-self.thickness, 0)))
-
-        self.markPoints(bottomAndFrontBack.finalPosition(), 'green')
-        bottomAndFrontBack = bottomAndFrontBack.simplify()
         self.markPoints(bottomAndFrontBack.finalPosition(), 'red')
+        bottomAndFrontBack = bottomAndFrontBack.simplify()
         self.insertPath(bottomAndFrontBack)
 
-        # separators
-        separator1 = Path();
-        separator1.MoveTo(start.add(self.boxWidth, self.boxHeight - self.thickness))
-        separator1.extend(self.boxFrames(self.boxWidth, Direction.right))
-        self.insertPath(separator1, 'green')
-
-        separator2 = Path();
-        separator2.MoveTo(start.add(0, self.boxHeight - self.thickness + self.boxDepth))
-        separator2.extend(self.boxFrames(self.boxWidth, Direction.left))
-        self.insertPath(separator2, 'green')
 
         # Shelf frames
         if (self.boxType == shelvedBox):
             # Shelf frames  front and back
 
             nrInOutFrames = int(
+                math.floor((self.boxHeight -self.handleHeight - (self.frameEdgesMin * 2) - self.frameLength) / self.frameLength))
+            nrFrames = int(math.floor(nrInOutFrames / 2))
+            remainder = (self.boxHeight -self.handleHeight - nrFrames * self.frameLength * 2) / 2
+
+            for i in range(self.shelfcount - 1):
+                shelfFramesStart = start.add((i + 1) * (shelfHeight + self.thickness),
+                                             (0 * (self.boxDepth + self.boxHeight - 2 * self.thickness)))
+                # self.markPoints(shelfFramesStart, 'blue')
+                frameStart = shelfFramesStart.add(0, remainder + self.frameLength / 2)
+                for i in range(nrFrames):
+                    self.insertRect(frameStart, self.thickness, self.frameLength, 'blue')
+                    frameStart = frameStart.add(0, self.frameLength * 2)
+
+            # Shelf Frames Back
+            nrInOutFrames = int(
                 math.floor((self.boxHeight - (self.frameEdgesMin * 2) - self.frameLength) / self.frameLength))
             nrFrames = int(math.floor(nrInOutFrames / 2))
             remainder = (self.boxHeight - nrFrames * self.frameLength * 2) / 2
 
-            for side in range(2):  # 0 is front,  1 is back
-                for i in range(self.shelfcount - 1):
-                    shelfFramesStart = start.add((i + 1) * (shelfHeight + self.thickness),
-                                                 (side * (self.boxDepth + self.boxHeight - 2 * self.thickness)))
-                    # self.markPoints(shelfFramesStart, 'blue')
-                    frameStart = shelfFramesStart.add(0, remainder + self.frameLength / 2)
-                    for i in range(nrFrames):
-                        self.insertRect(frameStart, self.thickness, self.frameLength, 'blue')
-                        frameStart = frameStart.add(0, self.frameLength * 2)
+            for i in range(self.shelfcount - 1):
+                shelfFramesStart = start.add((i + 1) * (shelfHeight + self.thickness),
+                                             (1 * (self.boxDepth -self.handleHeight + self.boxHeight - 2 * self.thickness)))
+                # self.markPoints(shelfFramesStart, 'blue')
+                frameStart = shelfFramesStart.add(0, remainder + self.frameLength / 2)
+                for i in range(nrFrames):
+                    self.insertRect(frameStart, self.thickness, self.frameLength, 'blue')
+                    frameStart = frameStart.add(0, self.frameLength * 2)
+
 
             nrInOutFrames = int(
                 math.floor((self.boxDepth - (self.frameEdgesMin * 2) - self.frameLength) / self.frameLength))
@@ -679,7 +772,7 @@ class BoxMaker(inkex.Effect):
             remainder = (self.boxDepth - nrFrames * self.frameLength * 2) / 2
             for i in range(self.shelfcount - 1):
                 shelfFramesStart = start.add((i + 1) * (shelfHeight + self.thickness),
-                                             (self.boxHeight - self.thickness))
+                                             (self.boxHeight - self.handleHeight - self.thickness))
                 # self.markPoints(shelfFramesStart, 'blue')
                 # inkex.debug('width %.2f remainder %.2f : fl %.2f'%(self.boxDepth, remainder, self.frameLength/2 ))
                 frameStart = shelfFramesStart.add(0, remainder + self.frameLength / 2)
@@ -703,8 +796,14 @@ class BoxMaker(inkex.Effect):
         leftPart.MoveTo(leftBoxStart)
         # self.markPoints(leftBoxStart, 'yellow')
         # leftPart.append(line(Point(0, self.thickness)))
-        leftPart.extend(self.boxFrames(self.boxHeight, Direction.left))
-        leftPart.append(line(Point(0, self.boxDepth - 2 * self.thickness)))
+        leftPart.extend(self.boxFrames(self.boxHeight-self.handleHeight , Direction.left))
+        self.markPoints(leftBoxStart, 'green')
+        if self.hasHandle:
+            # cut for handle
+            leftPart.append(line(Point(self.handleHeight,self.handleDepth)))
+
+        leftPart.append(line(Point(0, (self.boxDepth - 2 * self.thickness) - self.handleDepth)))
+
         if self.boxType.has_hinges():
             leftPart.append(line(Point(0, +0.5 * self.thickness - dx)))
             leftPart.append(
@@ -718,7 +817,7 @@ class BoxMaker(inkex.Effect):
 
         self.insertPath(leftPart.simplify())
 
-        # left part
+        # right part
 
         rightPart = Path();
 
@@ -737,9 +836,12 @@ class BoxMaker(inkex.Effect):
                 circleArc(outerRadius, Point((dx + self.thickness / 2), dx + self.thickness / 2 - self.thickness)))
             rightPart.append(line(Point(0, 0.5 * self.thickness - dx)))
 
-        rightPart.append(line(Point(0, self.boxDepth - 2 * self.thickness)))
-        # self.markPoints(rightPart.finalPosition(), 'orange')
-        rightPart.extend(self.boxFrames(self.boxHeight, Direction.right))
+        rightPart.append(line(Point(0, self.boxDepth - 2 * self.thickness - self.handleDepth)))
+        #self.markPoints(rightPart.finalPosition(), 'orange')
+        if self.hasHandle:
+            # cut for handle
+            rightPart.append(line(Point(-self.handleHeight,self.handleDepth)))
+        rightPart.extend(self.boxFrames(self.boxHeight - self.handleHeight, Direction.right))
         rightPart.append(line(Point(self.thickness, 0)))
         rightPart.append(line(Point(0, self.thickness)))
         rightPart.extend(self.boxFrames(self.boxDepth, Direction.down))
@@ -831,8 +933,9 @@ class BoxMaker(inkex.Effect):
 
         leftPart.MoveTo(shelfStart)
 
-        leftPart.extend(self.boxFrames(self.boxHeight, Direction.left))
-        leftPart.append(line(Point(0, self.boxDepth - 2 * self.thickness)))
+        leftPart.extend(self.boxFrames(self.boxHeight-self.handleHeight, Direction.left))
+        leftPart.append(line(Point(self.handleHeight,self.handleDepth)))
+        leftPart.append(line(Point(0, self.boxDepth - self.handleDepth - 2 * self.thickness)))
 
         leftPart.extend(self.boxFrames(self.boxHeight, Direction.right))
         leftPart.append(line(Point(self.thickness, 0)))
@@ -900,7 +1003,7 @@ class BoxMaker(inkex.Effect):
     def boxFrames(self, length, direction, inverse=False, depth=None):
         """
     returns a subPath with tabs starting at pointLoc
-    pointLoc: the start point    
+    pointLoc: the start point
     length: the length in current unit
     direction: an enum with the direction
     inverse: if true, indentation is on the other side

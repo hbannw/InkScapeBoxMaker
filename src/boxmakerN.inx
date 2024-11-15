@@ -39,6 +39,13 @@ This is just for shelved boxes.</param>
 		  <param name="frameEdgesMin" type="float" precision="2"  gui-text="Minimum distance of frame to edge" min="0.0" max="1000">5.0</param>
 		  <param name="frameLength" type="float" precision="2"  gui-text="Length of a frame " min="1.0" max="1000">10.0</param>
 		  <param name="hingeCircleFactor" type="float" precision="2"  gui-text="Size factor of hinge circle " min="1.0" max="1000">1.5</param>
+			<param name="hasHandle" type="boolean" gui-text="Front cut handle">False</param>
+		  <param name="handleHeight" type="float" precision="2"  gui-text="Handle cut height" min="1.0" max="1000">10.0</param>
+		  <param name="handleDepth" type="float" precision="2"  gui-text="Handle cut depth" min="1.0" max="1000">10.0</param>
+			<param name="separateAll" type="boolean" gui-text="Create one object for each part">False</param>
+			<param name="hasHole" type="boolean" gui-text="Gripping hole on front part">False</param>
+		  <param name="holeDiameter" type="float" precision="2"  gui-text="Hole diameter" min="1.0" max="1000">25.0</param>
+		  <param name="holePosition" type="float" precision="2"  gui-text="Position of the hole from the bottom" min="1.0" max="1000">76.0</param>
 		 </page>
 		<page name="Development" gui-text="Development Support">
 			<param name="developmentInfo" type="description" xml:space="preserve">Just some settings for development and debugging
