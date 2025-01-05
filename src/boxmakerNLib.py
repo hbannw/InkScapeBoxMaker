@@ -59,6 +59,7 @@ withHinge = BoxType('Box with Hinges', True)
 openBox = BoxType('just an open Box', False)
 mobileLoader = BoxType('box for mobile Loader', True)
 shelvedBox = BoxType('Box with shelves', False)
+onlySeparators = BoxType('Separators only', False)
 
 
 class Direction:
@@ -352,6 +353,8 @@ class BoxMaker(inkex.Effect):
                                      help='thickness of the material.')
         self.arg_parser.add_argument('--shelfCount', action='store', type=int, dest='shelfCount', default=1,
                                      help='number of shelves.')
+        self.arg_parser.add_argument('--sepCount', action='store', type=int, dest='sepCount', default=1,
+                                     help='number of separators.')
 
         self.arg_parser.add_argument('--frameEdgesMin', action='store', type=float, dest='frameEdgesMin', default=0,
                                      help='Minimum distance of frame to edge.')
@@ -387,6 +390,8 @@ class BoxMaker(inkex.Effect):
             self.boxType = mobileLoader
         elif self.options.boxType == 'openBoxWithShelves':
             self.boxType = shelvedBox
+        elif self.options.boxType == 'onlySeparators':
+            self.boxType = onlySeparators
 
         unit = self.options.unit
         self.unit = unit
@@ -396,6 +401,7 @@ class BoxMaker(inkex.Effect):
         self.boxHeight = self.svg.unittouu(str(self.options.boxHeight) + unit)
         self.thickness = self.svg.unittouu(str(self.options.thickness) + unit)
         self.shelfcount = self.options.shelfCount
+        self.sepCount = self.options.sepCount
 
         self.frameEdgesMin = self.svg.unittouu(str(self.options.frameEdgesMin) + unit)
         self.frameLength = self.svg.unittouu(str(self.options.frameLength) + unit)
@@ -451,8 +457,10 @@ class BoxMaker(inkex.Effect):
         # inkex.utils.debug("Info. %.2f %.2f Debug : %s HasHandle : %s %.2f" % (self.boxWidth, self.frameLength, repr(self.debug), self.options.hasHandle, self.hingeCircleFactor))
 
         self.parent = self.svg.get_current_layer()
-
-        self.drawBox()
+        if self.boxType == onlySeparators:
+          self.drawSeparators()
+        else:
+          self.drawBox()
         #    inkex.debug("Dict up " + repr( Direction.up['walkIn'][0]))
 
         #    inkex.debug('date %s' % self.printDate(datetime.now()))
@@ -462,6 +470,48 @@ class BoxMaker(inkex.Effect):
 
         if self.boxType == mobileLoader:
             self.drawMobileLoader()
+
+    def drawSeparators(self):
+        start = Point(10,10)
+
+        spacer = (self.boxDepth - (self.thickness * (self.sepCount-1))) / self.sepCount
+        # Separators for depth
+        for j in range(self.shelfcount-1):
+          separator = Path()
+          separator.MoveTo(start.add(((self.boxHeight + self.thickness) * j), 0))
+
+          for i in range(self.sepCount -1):
+            separator.append(line(Point(0,spacer)))
+            separator.append(line(Point(self.boxHeight/2,0)))
+            separator.append(line(Point(0,self.thickness)))
+            separator.append(line(Point(-self.boxHeight/2,0)))
+
+          # finish
+          separator.append(line(Point(0,spacer)))
+          separator.append(line(Point(self.boxHeight,0)))
+          separator.append(line(Point(0,-self.boxDepth)))
+          separator.append(line(Point(-self.boxHeight,0)))
+          self.insertPath(separator)
+        # Separators for width
+
+        spacer = (self.boxWidth - (self.thickness * (self.shelfcount-1))) / self.shelfcount
+        for j in range(self.sepCount -1):
+          separator = Path()
+          separator.MoveTo(start.add((self.boxHeight + self.thickness) * (j + self.shelfcount-1), 0))
+
+          for i in range(self.shelfcount -1):
+            separator.append(line(Point(0,spacer)))
+            separator.append(line(Point(self.boxHeight/2,0)))
+            separator.append(line(Point(0,self.thickness)))
+            separator.append(line(Point(-self.boxHeight/2,0)))
+
+          # finish
+          separator.append(line(Point(0,spacer)))
+          separator.append(line(Point(self.boxHeight,0)))
+          separator.append(line(Point(0,-self.boxWidth)))
+          separator.append(line(Point(-self.boxHeight,0)))
+          self.insertPath(separator)
+
 
     def drawMobileLoader(self):
         start = Point(10, 10)

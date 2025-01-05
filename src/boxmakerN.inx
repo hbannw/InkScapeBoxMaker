@@ -15,7 +15,8 @@
 					<option value="withHinge">Box with hinge for top cover</option>
 					<option value="openBox">Just an open box (no top)</option>
 					<option value="openBoxWithShelves">An open box with shelves</option>
-		  </param>
+          <option value="onlySeparators">Only separators</option>
+        </param>
 
   		  <param name="unit" gui-text="Unit" type="optiongroup" appearance="radio/combo">
 					<option value="mm">mm</option>
@@ -30,7 +31,8 @@
 
 			<param name="shelfCountExplanation" type="description" xml:space="preserve">
 This is just for shelved boxes.</param>
-		  <param name="shelfCount" type="int" gui-text="number of shelves" min="1" max="10">1</param>
+		  <param name="shelfCount" type="int" gui-text="number of shelves in width" min="1" max="10">1</param>
+      <param name="sepCount" type="int" gui-text="Nombre de sheves in depth" min="1" max="10">1</param>
 
 		  </page>
 		<page name="HingeAndFrame" gui-text="Hinge and Frame dimensions">
