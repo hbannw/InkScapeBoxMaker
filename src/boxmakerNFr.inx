@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+  <name>Box Maker (Francais)</name>
+  <id>at.arctis.laser_cut.boxMakerFr</id>
+
+  <dependency type="executable" location="extensions">boxmakerN.py</dependency>
+  <dependency type="executable" location="extensions">boxmakerNLib.py</dependency>
+
+  	<param name="tab" type="notebook">
+		<page name="Dimensions" gui-text="Dimensions de la boîte">
+			<param name="laserboxuse" type="description" xml:space="preserve">Cette extension génère différents modèles de boîtes à couper au laser.
+			</param>
+
+  		  <param name="boxType" gui-text="Type de boîte" type="optiongroup" appearance="radio/combo">
+					<option value="withHinge">Boîte avec charnière et couvercle</option>
+					<option value="openBox">Juste une boîte ouverte</option>
+					<option value="openBoxWithShelves">Boîte ouverte avec séparateurs</option>
+					<option value="openBoxMovableSeps">Boîte ouverte avec séparateurs mobiles</option>
+          <option value="onlySeparators">Séparateurs seuls</option>
+					
+		  </param>
+
+  		  <param name="unit" gui-text="Unité" type="optiongroup" appearance="radio/combo">
+					<option value="mm">mm</option>
+					<option value="cm">cm</option>
+					<option value="in">in</option>
+					<option value="px">px</option>
+		  </param>
+		  <param name="box_width" type="float" precision="2"  gui-text="Largeur" min="1" max="1000">200.0</param>
+		  <param name="box_depth" type="float" precision="2" gui-text="Profondeur" min="1" max="1000">100.0</param>
+		  <param name="box_height" type="float" precision="2" gui-text="Hauteur" min="1" max="1000">70.0</param>
+		  <param name="thickness" type="float" precision="2" gui-text="Epaisseur du bois" min="1" max="1000">4.0</param>
+
+			<param name="shelfCountExplanation" type="description" xml:space="preserve">
+Uniquement pour les boîtes avec séparateur.</param>
+		  <param name="shelfCount" type="int" gui-text="Nombre de cases dans la largeur" min="1" max="10">1</param>
+		  <param name="sepCount" type="int" gui-text="Nombre de cases en profondeur" min="1" max="10">1</param>
+		  <param name="notchDepth" type="float" precision="2" gui-text="Profondeur de l'encoche" min="1" max="1000">20.0</param>
+
+		  </page>
+		<page name="HingeAndFrame" gui-text="Dimensions de la charnière et du cadre">
+			<param name="paramInfo" type="description" xml:space="preserve">Attention : des valeurs extrêmes donnent des résultats incorrects
+			</param>
+		  <param name="frameEdgesMin" type="float" precision="2"  gui-text="Distance minimale entre le cadre et l'encoche" min="0.0" max="1000">5.0</param>
+		  <param name="frameLength" type="float" precision="2"  gui-text="Longueur d'une encoche " min="1.0" max="1000">10.0</param>
+		  <param name="hingeCircleFactor" type="float" precision="2"  gui-text="Facteur d'échelle du cercle de charnière " min="1.0" max="1000">1.5</param>
+			<param name="hasHandle" type="boolean" gui-text="Découpe en façade">False</param>
+		  <param name="handleHeight" type="float" precision="2"  gui-text="Hauteur de la découpe" min="0.0" max="1000">10.0</param>
+		  <param name="handleDepth" type="float" precision="2"  gui-text="Profondeur de la découpe" min="0.0" max="1000">10.0</param>
+			<param name="separateAll" type="boolean" gui-text="Séparer la découpe des pièces">False</param>
+			<param name="hasHole" type="boolean" gui-text="Trou de préhension">False</param>
+		  <param name="holeDiameter" type="float" precision="2"  gui-text="Diamètre du trou" min="1.0" max="1000">25.0</param>
+		  <param name="holePosition" type="float" precision="2"  gui-text="Distance à partir du bas" min="1.0" max="1000">76.0</param>
+		 </page>
+		<page name="Development" gui-text="Developpement et tests">
+			<param name="developmentInfo" type="description" xml:space="preserve">Paramètres pour debuggage.
+			</param>
+			<param name="debug" type="boolean" gui-text="Sortie des infos de debug">False</param>
+		 </page>
+	</param>	
+
+  <effect>
+    <object-type>all</object-type>
+    <effects-menu>
+		<submenu name="Render"/>
+    </effects-menu>
+  </effect>
+  <script>
+    <command reldir="extensions" interpreter="python">boxmakerN.py</command>
+  </script>
+</inkscape-extension>

@@ -60,6 +60,7 @@ openBox = BoxType('just an open Box', False)
 mobileLoader = BoxType('box for mobile Loader', True)
 shelvedBox = BoxType('Box with shelves', False)
 onlySeparators = BoxType('Separators only', False)
+openBoxMovableSeps = BoxType('Separators only', False)
 
 
 class Direction:
@@ -355,6 +356,8 @@ class BoxMaker(inkex.Effect):
                                      help='number of shelves.')
         self.arg_parser.add_argument('--sepCount', action='store', type=int, dest='sepCount', default=1,
                                      help='number of separators.')
+        self.arg_parser.add_argument('--notchDepth', action='store', type=float, dest='notchDepth', default=0,
+                                     help='Depth of the notch.')
 
         self.arg_parser.add_argument('--frameEdgesMin', action='store', type=float, dest='frameEdgesMin', default=0,
                                      help='Minimum distance of frame to edge.')
@@ -392,6 +395,8 @@ class BoxMaker(inkex.Effect):
             self.boxType = shelvedBox
         elif self.options.boxType == 'onlySeparators':
             self.boxType = onlySeparators
+        elif self.options.boxType == 'openBoxMovableSeps':
+            self.boxType = openBoxMovableSeps
 
         unit = self.options.unit
         self.unit = unit
@@ -413,6 +418,7 @@ class BoxMaker(inkex.Effect):
         if self.separateAll:
           self.interval = self.thickness
 
+        self.notch =  self.svg.unittouu(str(self.options.notchDepth) + unit)
         self.backRestHeight = 150.0
         self.backRestWidth = 90.0
 
@@ -512,6 +518,18 @@ class BoxMaker(inkex.Effect):
           separator.append(line(Point(-self.boxHeight,0)))
           self.insertPath(separator)
 
+    def drawMovableSeparator(self,start):
+        separator = Path()
+        separator.MoveTo(start)
+        separator.append(line(Point(0,self.notch)))
+        separator.append(line(Point(self.thickness,0)))
+        separator.append(line(Point(0, self.boxHeight - self.notch- self.thickness)))
+        separator.append(line(Point(self.boxWidth - (2*self.thickness),0)))
+        separator.append(line(Point(0, -(self.boxHeight - self.notch - self.thickness))))
+        separator.append(line(Point(self.thickness,0)))
+        separator.append(line(Point(0,-self.notch)))
+        separator.append(line(Point(-self.boxWidth,0)))
+        self.insertPath(separator)
 
     def drawMobileLoader(self):
         start = Point(10, 10)
@@ -737,10 +755,10 @@ class BoxMaker(inkex.Effect):
           self.insertPath(bottomAndFrontBack)
 
           bottomAndFrontBack = Path()
-          bottomAndFrontBack.MoveTo(start.add(0, self.boxHeight-self.handleHeight - self.thickness + self.interval * 3 + self.boxDepth))
+          bottomAndFrontBack.MoveTo(start.add(0, self.boxHeight-self.handleHeight - self.thickness + self.interval * 4 + self.boxDepth))
           bottomAndFrontBack.extend(self.boxFrames(self.boxWidth, Direction.left))
 
-        bottomAndFrontBack.MoveTo(start.add(0, self.boxHeight-self.handleHeight - self.thickness + self.interval * 3 + self.boxDepth))
+        bottomAndFrontBack.MoveTo(start.add(0, self.boxHeight-self.handleHeight - self.thickness + self.interval * 4 + self.boxDepth))
 
 
         ##bottomAndFrontBack.MoveTo(start.add(0, self.boxHeight-self.handleHeight - self.thickness + self.boxDepth))
@@ -852,7 +870,19 @@ class BoxMaker(inkex.Effect):
             # cut for handle
             leftPart.append(line(Point(self.handleHeight,self.handleDepth)))
 
-        leftPart.append(line(Point(0, (self.boxDepth - 2 * self.thickness) - self.handleDepth)))
+        if self.boxType == openBoxMovableSeps:
+            spacer = (self.boxDepth - (self.thickness * (self.sepCount-1 + 2))) / self.sepCount
+            leftPart.append(line(Point(0,spacer - self.handleDepth)))
+            for i in range(self.sepCount - 1):
+                leftPart.append(line(Point(-self.notch,0)))
+                leftPart.append(line(Point(0,self.thickness)))
+                leftPart.append(line(Point(self.notch,0)))
+                leftPart.append(line(Point(0,spacer)))
+
+        else:
+          self.markPoints(leftPart.finalPosition(), 'orange')
+          leftPart.append(line(Point(0, (self.boxDepth - 2 * self.thickness) - self.handleDepth)))
+          self.markPoints(leftPart.finalPosition(), 'orange')
 
         if self.boxType.has_hinges():
             leftPart.append(line(Point(0, +0.5 * self.thickness - dx)))
@@ -886,7 +916,19 @@ class BoxMaker(inkex.Effect):
                 circleArc(outerRadius, Point((dx + self.thickness / 2), dx + self.thickness / 2 - self.thickness)))
             rightPart.append(line(Point(0, 0.5 * self.thickness - dx)))
 
-        rightPart.append(line(Point(0, self.boxDepth - 2 * self.thickness - self.handleDepth)))
+        if self.boxType == openBoxMovableSeps:
+            spacer = (self.boxDepth - (self.thickness * (self.sepCount-1 + 2 ))) / self.sepCount
+            for i in range(self.sepCount - 1):
+                rightPart.append(line(Point(0,spacer)))
+                rightPart.append(line(Point(-self.notch,0)))
+                rightPart.append(line(Point(0,self.thickness)))
+                rightPart.append(line(Point(self.notch,0)))
+
+            rightPart.append(line(Point(0,spacer - self.handleDepth)))
+
+        else:
+            rightPart.append(line(Point(0, self.boxDepth - 2 * self.thickness - self.handleDepth)))
+
         #self.markPoints(rightPart.finalPosition(), 'orange')
         if self.hasHandle:
             # cut for handle
@@ -900,6 +942,10 @@ class BoxMaker(inkex.Effect):
 
         if (self.boxType == shelvedBox):
             self.draw_linehelves(start)
+        if self.boxType == openBoxMovableSeps:
+            for i in range(self.sepCount-1):
+                self.drawMovableSeparator(start.add(self.boxWidth + self.boxHeight + 4 ,
+                                   self.thickness + i * (self.boxHeight -self.thickness + 2)))
         # TOP Part (only for hinged boxes)
         if self.boxType.has_hinges():
 
